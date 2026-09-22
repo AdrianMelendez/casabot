@@ -218,6 +218,37 @@ and every line of the hardware path — the ESP32 firmware, the serial protocol
 and `base_driver` have never touched a real motor. Treat the pin assignments
 and the PID gains as a starting point, not as working values.
 
+## Troubleshooting
+
+### The map is a smeared mess
+
+Before touching any SLAM parameter, check that exactly one ROS graph is
+running. `slam_toolbox` has no way to know that two different robots are
+publishing `/scan`, so a second simulator on the same DDS domain produces a map
+that looks like a plausible building and is garbage: ghost walls parallel to the
+real ones, structure outside the floor plan, and fan-shaped smears.
+
+```bash
+ros2 topic info /scan
+ros2 topic info /odom
+```
+
+`Publisher count` must be `1` for both. If it is 2, something else is running:
+
+```bash
+docker ps                 # leftover containers from an earlier session
+pgrep -af "gz sim|slam_toolbox|ekf_node"
+```
+
+This is easy to hit because `docker/compose.yaml` uses `network_mode: host`, so
+the container shares the machine's DDS graph. The compose file sets
+`ROS_DOMAIN_ID=42` rather than the default 0 to keep it away from other ROS
+installs, and a container killed by a timeout can outlive the command that
+started it. Stop strays with `docker ps -q --filter ancestor=casabot-dev |
+xargs -r docker stop`.
+
+Only once `Publisher count` is 1 everywhere is it worth blaming the scan matcher.
+
 ## Design notes
 
 **Why an ESP32 instead of driving the motors from the Pi.** Linux is not

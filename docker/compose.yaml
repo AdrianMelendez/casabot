@@ -20,7 +20,13 @@ services:
       WAYLAND_DISPLAY: "${WAYLAND_DISPLAY:-}"
       XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/mnt/wslg/runtime-dir}"
       PULSE_SERVER: "${PULSE_SERVER:-/mnt/wslg/PulseServer}"
-      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      # Not 0. Host networking puts this container on the machine's DDS graph,
+      # so domain 0 collides with any other ROS running here - another
+      # container, a second sim, a colleague on the same LAN. Two Gazebos
+      # publishing /scan into one slam_toolbox produces a map that looks
+      # plausible and is garbage. Set this to match the robot when you talk
+      # to the Pi.
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-42}"
       QT_X11_NO_MITSHM: "1"
       # Uncomment if Gazebo or RViz crashes on startup: forces software OpenGL.
       # LIBGL_ALWAYS_SOFTWARE: "1"
