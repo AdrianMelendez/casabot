@@ -1,0 +1,42 @@
+# WSL2: WSLg already provides X11 and Wayland, so the GUI needs no xhost calls.
+#
+#   cd docker && docker compose run --rm dev
+#
+services:
+  dev:
+    build:
+      context: .
+      args:
+        UID: "${UID:-1000}"
+        GID: "${GID:-1000}"
+    image: casabot-dev
+    # host networking so DDS discovery reaches nodes outside the container
+    # (the Raspberry Pi, or RViz on the host).
+    network_mode: host
+    ipc: host
+    privileged: true
+    environment:
+      DISPLAY: "${DISPLAY:-:0}"
+      WAYLAND_DISPLAY: "${WAYLAND_DISPLAY:-}"
+      XDG_RUNTIME_DIR: "${XDG_RUNTIME_DIR:-/mnt/wslg/runtime-dir}"
+      PULSE_SERVER: "${PULSE_SERVER:-/mnt/wslg/PulseServer}"
+      ROS_DOMAIN_ID: "${ROS_DOMAIN_ID:-0}"
+      QT_X11_NO_MITSHM: "1"
+      # Uncomment if Gazebo or RViz crashes on startup: forces software OpenGL.
+      # LIBGL_ALWAYS_SOFTWARE: "1"
+    volumes:
+      - ../:/ws/src/casabot
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/wslg:/mnt/wslg
+      - casabot-build:/ws/build
+      - casabot-install:/ws/install
+      - ~/.casabot:/home/dev/.casabot
+    devices:
+      - /dev/dri:/dev/dri
+    working_dir: /ws
+    stdin_open: true
+    tty: true
+
+volumes:
+  casabot-build:
+  casabot-install:
