@@ -199,6 +199,25 @@ python3 test/test_kinematics.py
 If those pass and the robot still drifts, the fault is in the measured
 constants, not the code — go back to calibration.
 
+### What has actually been run
+
+The whole stack has been exercised headless in Gazebo Harmonic, in the
+container in this repo:
+
+- `colcon build`, both entry points registered, all four launch files parse
+- `/scan` returns real ranges, `/cmd_vel` moves the robot, the EKF publishes
+  `/odometry/filtered` and `odom -> base_footprint`
+- slam_toolbox builds a map and publishes `map -> odom`; `map_saver_cli`
+  writes it
+- Nav2 brings up all ten lifecycle nodes with no errors and AMCL localises
+- `places save`, `places list`, then `places go` after driving away, ending in
+  `arrived at 'home'` within the goal tolerance
+
+What has **not** been run: RViz and the Gazebo GUI (the tests were headless),
+and every line of the hardware path — the ESP32 firmware, the serial protocol
+and `base_driver` have never touched a real motor. Treat the pin assignments
+and the PID gains as a starting point, not as working values.
+
 ## Design notes
 
 **Why an ESP32 instead of driving the motors from the Pi.** Linux is not
