@@ -65,8 +65,17 @@ On WSL2 or plain Linux, everything runs in a container — WSLg already provides
 the GUI, so Gazebo and RViz just work.
 
 ```bash
-git clone https://github.com/AdrianMelendez/casabot.git && cd casabot/docker
-UID=$(id -u) GID=$(id -g) docker compose run --rm dev
+git clone https://github.com/AdrianMelendez/casabot.git
+cd casabot/docker
+docker compose run --rm dev
+```
+
+The container builds a user with UID 1000, which is the default on WSL2 and on
+most desktop installs. If `id -u` gives you something else, export it first so
+files in the mounted workspace stay yours:
+
+```bash
+HOST_UID=$(id -u) HOST_GID=$(id -g) docker compose build
 ```
 
 Then inside the container:

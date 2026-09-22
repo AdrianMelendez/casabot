@@ -7,8 +7,8 @@ services:
     build:
       context: .
       args:
-        UID: "${UID:-1000}"
-        GID: "${GID:-1000}"
+        HOST_UID: "${HOST_UID:-1000}"
+        HOST_GID: "${HOST_GID:-1000}"
     image: casabot-dev
     # host networking so DDS discovery reaches nodes outside the container
     # (the Raspberry Pi, or RViz on the host).
