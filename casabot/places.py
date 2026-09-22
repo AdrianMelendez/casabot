@@ -12,6 +12,7 @@ they were recorded against.
 import argparse
 import os
 import sys
+import time
 
 import rclpy
 import yaml
@@ -19,7 +20,6 @@ from action_msgs.msg import GoalStatus
 from geometry_msgs.msg import PoseStamped
 from nav2_msgs.action import NavigateToPose
 from rclpy.action import ActionClient
-from rclpy.duration import Duration
 from rclpy.node import Node
 from rclpy.utilities import remove_ros_args
 from tf2_ros import Buffer, TransformListener
@@ -43,17 +43,24 @@ def save_places(path, places):
 
 
 class Places(Node):
-    def __init__(self, path):
+    def __init__(self, path, tf_timeout=15.0):
         super().__init__('places')
         self.path = path
+        self.tf_timeout = tf_timeout
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
         self.nav = ActionClient(self, NavigateToPose, 'navigate_to_pose')
 
-    def current_pose(self, timeout=5.0):
-        """map -> base_footprint, waiting for the localiser to publish it."""
-        deadline = self.get_clock().now() + Duration(seconds=timeout)
-        while self.get_clock().now() < deadline:
+    def current_pose(self, timeout=None):
+        """map -> base_footprint, waiting for the localiser to publish it.
+
+        The deadline is wall time on purpose. Under use_sim_time the ROS clock
+        reads 0 until the first /clock message arrives, so a ROS-clock deadline
+        of now + 5s is already in the past the instant simulation time is
+        adopted, and this returns before any transform has been received.
+        """
+        deadline = time.monotonic() + (self.tf_timeout if timeout is None else timeout)
+        while time.monotonic() < deadline:
             rclpy.spin_once(self, timeout_sec=0.1)
             if self.tf_buffer.can_transform('map', 'base_footprint', rclpy.time.Time()):
                 tf = self.tf_buffer.lookup_transform('map', 'base_footprint', rclpy.time.Time())
@@ -63,7 +70,10 @@ class Places(Node):
                     'y': float(tf.transform.translation.y),
                     'yaw': float(quaternion_to_yaw(q.x, q.y, q.z, q.w)),
                 }
-        raise RuntimeError('no map -> base_footprint transform; is SLAM or AMCL running?')
+        raise SystemExit(
+            f'no map -> base_footprint transform after {self.tf_timeout:.0f}s. '
+            'Is slam_toolbox or AMCL running, and has AMCL been given an initial '
+            'pose? Raise the wait with --timeout if the stack is just slow to start.')
 
     def cmd_save(self, name):
         places = load_places(self.path)
@@ -114,10 +124,16 @@ class Places(Node):
 
         result = handle.get_result_async()
         rclpy.spin_until_future_complete(self, result)
-        if result.result().status == GoalStatus.STATUS_SUCCEEDED:
+
+        # Ctrl-C or a SIGTERM shuts the context down and spin returns with the
+        # future unresolved. Say so rather than dying on a None attribute.
+        outcome = result.result()
+        if outcome is None:
+            raise SystemExit(f"interrupted before '{name}' was reached; the goal may still be active")
+        if outcome.status == GoalStatus.STATUS_SUCCEEDED:
             print(f"arrived at '{name}'")
         else:
-            raise SystemExit(f"failed to reach '{name}' (status {result.result().status})")
+            raise SystemExit(f"failed to reach '{name}' (status {outcome.status})")
 
 
 def main(argv=None):
@@ -126,13 +142,15 @@ def main(argv=None):
     parser.add_argument('command', choices=['save', 'list', 'go', 'remove'])
     parser.add_argument('name', nargs='?')
     parser.add_argument('--file', default=DEFAULT_PLACES_FILE)
+    parser.add_argument('--timeout', type=float, default=15.0,
+                        help='seconds to wait for the map transform (default: 15)')
     args = parser.parse_args(argv[1:])
 
     if args.command != 'list' and not args.name:
         parser.error(f'{args.command} needs a place name')
 
     rclpy.init()
-    node = Places(args.file)
+    node = Places(args.file, args.timeout)
     try:
         getattr(node, f'cmd_{args.command}')(args.name)
     finally:

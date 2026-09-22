@@ -103,6 +103,10 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard
 ros2 run nav2_map_server map_saver_cli -f ~/.casabot/map
 ```
 
+Stop the robot before saving. `map_saver_cli` grabs one message off `/map`, and
+if it fires mid-drive while slam_toolbox is rebuilding the grid it exits with
+`Failed to spin map subscription` and writes nothing.
+
 Now restart with navigation instead of mapping, set the initial pose in RViz
 with **2D Pose Estimate**, and name some places:
 
@@ -170,7 +174,7 @@ casabot/
 ├── config/
 │   ├── ekf.yaml           robot_localization: odom + IMU -> odom->base_footprint
 │   ├── slam.yaml          slam_toolbox async mapping
-│   └── nav2.yaml          Nav2, trimmed to the params that matter
+│   └── nav2.yaml          Nav2, upstream params plus this robot's overrides
 ├── launch/
 │   ├── robot.launch.py    real hardware: URDF, lidar, base driver, EKF
 │   ├── sim.launch.py      the same robot in Gazebo Harmonic
@@ -213,9 +217,14 @@ publish `odom -> base_footprint` itself, but then sim and hardware take
 different code paths, and the path you never exercise is the one that breaks.
 The plugin's TF is deliberately not bridged.
 
-**Why the Nav2 config is short.** `config/nav2.yaml` only sets the parameters
-that differ from the Nav2 defaults. A 400-line copy of upstream is something you
-have to re-diff on every release for no benefit.
+**Why the Nav2 config is a full copy of upstream.** The first version of this
+file was trimmed to the dozen parameters that differ from stock, on the
+assumption that every Nav2 node falls back to a code default. It does not.
+Jazzy's bringup starts ten lifecycle nodes, and `collision_monitor` aborts the
+whole stack with `parameter 'observation_sources' is not initialized` if the
+file does not define it. So `config/nav2.yaml` is upstream's `nav2_params.yaml`
+with the robot-specific values applied on top, and a header listing exactly what
+was changed. Re-diff it against upstream after a Nav2 upgrade.
 
 ## Roadmap
 
