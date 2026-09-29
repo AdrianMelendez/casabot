@@ -4,6 +4,7 @@
     ros2 run casabot places list
     ros2 run casabot places go kitchen
     ros2 run casabot places remove kitchen
+    ros2 run casabot places rename room_2 kitchen
     ros2 run casabot places tour             # visit every place in turn
 
 After autonomous exploration (explore.launch.py) every room is already here as
@@ -102,6 +103,16 @@ class Places(Node):
         save_places(self.path, places)
         print(f"removed '{name}'")
 
+    def cmd_rename(self, name, new_name):
+        places = load_places(self.path)
+        if name not in places:
+            raise SystemExit(f"unknown place '{name}'")
+        if new_name in places:
+            raise SystemExit(f"'{new_name}' already exists; remove it first")
+        places[new_name] = places.pop(name)
+        save_places(self.path, places)
+        print(f"renamed '{name}' to '{new_name}'")
+
     def cmd_tour(self, _name=None):
         # Natural order, so room_2 comes before room_10.
         names = sorted(load_places(self.path),
@@ -161,20 +172,26 @@ class Places(Node):
 def main(argv=None):
     argv = remove_ros_args(args=argv if argv is not None else sys.argv)
     parser = argparse.ArgumentParser(prog='places', description=__doc__.splitlines()[0])
-    parser.add_argument('command', choices=['save', 'list', 'go', 'remove', 'tour'])
+    parser.add_argument('command', choices=['save', 'list', 'go', 'remove', 'rename', 'tour'])
     parser.add_argument('name', nargs='?')
+    parser.add_argument('new_name', nargs='?', help='for rename')
     parser.add_argument('--file', default=DEFAULT_PLACES_FILE)
     parser.add_argument('--timeout', type=float, default=15.0,
                         help='seconds to wait for the map transform (default: 15)')
     args = parser.parse_args(argv[1:])
 
+    if args.command == 'rename' and not args.new_name:
+        parser.error('rename needs the old name and the new one')
     if args.command not in ('list', 'tour') and not args.name:
         parser.error(f'{args.command} needs a place name')
 
     rclpy.init()
     node = Places(args.file, args.timeout)
     try:
-        getattr(node, f'cmd_{args.command}')(args.name)
+        if args.command == 'rename':
+            node.cmd_rename(args.name, args.new_name)
+        else:
+            getattr(node, f'cmd_{args.command}')(args.name)
     finally:
         node.destroy_node()
         rclpy.try_shutdown()

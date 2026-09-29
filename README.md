@@ -150,6 +150,8 @@ place (`room_1` is the biggest), and drives back to where it started:
 ```
 
 On the flat those are the living room, kitchen, office, bedroom and bathroom.
+The robot cannot know which is which, so give them names once:
+`places rename room_2 kitchen`.
 
 Stop it then, and go to [Navigating the saved map](#navigating-the-saved-map).
 
@@ -287,6 +289,7 @@ ros2 run casabot places save <name>     # remember where the robot is right now
 ros2 run casabot places list
 ros2 run casabot places go <name>
 ros2 run casabot places remove <name>
+ros2 run casabot places rename <name> <new name>
 ros2 run casabot places tour            # visit every place in turn
 ```
 
