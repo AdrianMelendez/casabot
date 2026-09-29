@@ -4,6 +4,10 @@
     ros2 run casabot places list
     ros2 run casabot places go kitchen
     ros2 run casabot places remove kitchen
+    ros2 run casabot places tour             # visit every place in turn
+
+After autonomous exploration (explore.launch.py) every room is already here as
+room_1, room_2, ... (room_1 is the biggest).
 
 Poses are stored in map frame, so they stay valid as long as you reuse the map
 they were recorded against.
@@ -11,6 +15,7 @@ they were recorded against.
 
 import argparse
 import os
+import re
 import sys
 import time
 
@@ -97,6 +102,23 @@ class Places(Node):
         save_places(self.path, places)
         print(f"removed '{name}'")
 
+    def cmd_tour(self, _name=None):
+        # Natural order, so room_2 comes before room_10.
+        names = sorted(load_places(self.path),
+                       key=lambda n: [int(s) if s.isdigit() else s for s in re.split(r'(\d+)', n)])
+        if not names:
+            raise SystemExit(f'no places yet in {self.path}')
+        failed = []
+        for name in names:
+            try:
+                self.cmd_go(name)
+            except SystemExit as e:           # one unreachable place should not end the tour
+                print(e)
+                failed.append(name)
+        print(f'tour done: {len(names) - len(failed)} of {len(names)} places reached')
+        if failed:
+            raise SystemExit(f"could not reach: {', '.join(failed)}")
+
     def cmd_go(self, name):
         places = load_places(self.path)
         if name not in places:
@@ -139,14 +161,14 @@ class Places(Node):
 def main(argv=None):
     argv = remove_ros_args(args=argv if argv is not None else sys.argv)
     parser = argparse.ArgumentParser(prog='places', description=__doc__.splitlines()[0])
-    parser.add_argument('command', choices=['save', 'list', 'go', 'remove'])
+    parser.add_argument('command', choices=['save', 'list', 'go', 'remove', 'tour'])
     parser.add_argument('name', nargs='?')
     parser.add_argument('--file', default=DEFAULT_PLACES_FILE)
     parser.add_argument('--timeout', type=float, default=15.0,
                         help='seconds to wait for the map transform (default: 15)')
     args = parser.parse_args(argv[1:])
 
-    if args.command != 'list' and not args.name:
+    if args.command not in ('list', 'tour') and not args.name:
         parser.error(f'{args.command} needs a place name')
 
     rclpy.init()
