@@ -52,7 +52,7 @@ Three options were on the table: 2D lidar, RGB-D visual SLAM, or monocular.
 
 Lidar won on **failure modes**. Visual SLAM loses tracking against a blank
 hallway wall, which is most of a house at 2 am with the lights off. A 360° lidar
-does not care about texture or lighting, and at ~$100 it is cheaper than a
+does not care about texture or lighting, and at $69–99 it is cheaper than a
 RealSense. The IMU is there because wheel odometry alone drifts in yaw on rugs,
 and yaw drift is what bends a map.
 

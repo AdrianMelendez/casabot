@@ -49,15 +49,18 @@ def generate_launch_description():
             parameters=[{'port': base_port, 'use_sim_time': use_sim_time}],
             output='screen',
         ),
+        # RPLIDAR A1/A2 via the apt package (ros-jazzy-rplidar-ros 2.1.0), whose
+        # only executable is rplidar_composition. It speaks 115200 baud for
+        # A1/A2 and 256000 for A3/S1. The C1 needs 460800 and Slamtec's own
+        # sllidar_ros2 driver built from source; swap this node for that one.
         Node(
             package='rplidar_ros',
-            executable='rplidar_node',
+            executable='rplidar_composition',
             parameters=[{
                 'serial_port': lidar_port,
-                'serial_baudrate': 115200,   # A1/A2. C1 and S1 use 256000.
+                'serial_baudrate': 115200,
                 'frame_id': 'lidar_link',
                 'angle_compensate': True,
-                'scan_mode': 'Sensitivity',
                 'use_sim_time': use_sim_time,
             }],
             output='screen',

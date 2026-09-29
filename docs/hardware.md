@@ -2,23 +2,39 @@
 
 ## Bill of materials
 
-Prices are rough 2026 street prices, for orientation only.
+Single-unit US prices, checked September 2026. Rows marked *est.* had no
+listing with a visible price when checked; treat them as ballpark.
 
-| Part | Choice | Why | ~Cost |
-|---|---|---|---|
-| Compute | Raspberry Pi 5, 4 GB | Runs ROS 2 Jazzy natively; Nav2 + slam_toolbox fit comfortably in 4 GB | $60 |
-| Storage | 32 GB A2 microSD (or NVMe HAT + SSD) | SD cards are the usual cause of mystery corruption; an SSD is worth it if you reflash often | $10–45 |
-| Lidar | RPLIDAR A1M8 (or C1) | 12 m range, 360°, `rplidar_ros` supports it out of the box | $100 |
-| IMU | MPU6050 breakout | Gyro kills the yaw drift wheel odometry has on carpet | $3 |
-| Microcontroller | ESP32 DevKitC | Real-time PID and encoder counting the Pi should not be doing | $6 |
-| Motors | 2 × 6 V–12 V gearmotor with quadrature encoder, ~30:1 | Encoders are non-negotiable — no encoders, no odometry, no map | $25 |
-| Motor driver | TB6612FNG breakout | More efficient and cooler than an L298N, same wiring effort | $6 |
-| Wheels | 2 × 65 mm | Sets `wheel_radius = 0.0325` | $6 |
-| Caster | 1 × ball caster | Low friction so it does not fight turns | $3 |
-| Battery | 3S Li-ion pack or 2 × 18650 + 5 V BEC | Pi 5 wants a solid 5 V/5 A; browning out mid-map is the classic failure | $25 |
-| Chassis | Laser-cut acrylic or 3D-printed plate | Any flat plate works; keep the lidar unobstructed 360° | $15 |
+Two things moved a lot since this list was first written. Memory shortages
+driven by AI data centres pushed the Raspberry Pi 5 4 GB from its $60 launch
+price to $110, and microSD cards and SSDs up with it. Meanwhile the newer RPLIDAR
+C1 now costs less than the older A1.
 
-Total: roughly **$260**.
+| Part | Choice | Why | Price | Source |
+|---|---|---|---|---|
+| Compute | Raspberry Pi 5, 4 GB | Runs ROS 2 Jazzy natively; Nav2 + slam_toolbox fit in 4 GB. The 8 GB is $180 and not needed | $110 | [CanaKit](https://www.canakit.com/raspberry-pi-5-4gb.html) |
+| Cooling | Raspberry Pi Active Cooler | Nav2 and SLAM keep the CPU busy for minutes at a time; without cooling the Pi 5 throttles | $10.95 | [PiShop](https://www.pishop.us/product/raspberry-pi-active-cooler/) |
+| Storage | 32 GB A2 microSD | SD cards are the usual cause of mystery corruption; buy a known brand | ~$10–15 *est.* | [NAND prices](https://www.tomshardware.com/pc-components/storage/memory-cards-and-flash-drives-prices-rocket-124-percent-some-products-peak-at-261-percent-jump-increases-from-2025-driven-by-ai-chip-shortage-across-a-range-of-formats-and-capacities) |
+| Lidar | RPLIDAR A1M8 | 12 m, 360°, works with the apt `rplidar_ros` driver that `robot.launch.py` uses | $99 | [Seeed](https://www.seeedstudio.com/RPLiDAR-A1M8-R6-360-Degree-Laser-Scanner-Kit-12M-Range-p-4785.html) |
+| *or* Lidar | RPLIDAR C1 | Cheaper and a better sensor (DTOF), but needs Slamtec's [`sllidar_ros2`](https://github.com/Slamtec/sllidar_ros2) built from source at 460800 baud | $69 | [Seeed](https://www.seeedstudio.com/RPLiDAR-C1M1-R2-Portable-ToF-Laser-Scanner-Kit-12M-Range-p-5840.html) |
+| IMU | MPU6050 (GY-521) breakout | Gyro kills the yaw drift wheel odometry has on carpet | ~$5 *est.* | |
+| Microcontroller | ESP32-DevKitC-32E | Real-time PID and encoder counting the Pi should not be doing | $10 | [DigiKey](https://www.digikey.com/en/products/detail/espressif-systems/ESP32-DEVKITC-32E/12091810) |
+| Motors | 2 × JGB37-520 12 V gearmotor with Hall encoder, ~200–330 RPM | Encoders are non-negotiable: no encoders, no odometry, no map | $17–19 each | [Oz Robotics](https://ozrobotics.com/shop/encoder-reduction-motor-jgb37-520b-12v-dc-deceleration-motor-12v-333rpm/) |
+| *or* Motors | 2 × Pololu 34:1 25D LP 6 V with 48 CPR encoder | Documented encoder (1632.67 counts/rev), consistent unit to unit | $53.95 each | [Pololu](https://www.pololu.com/product/4824) |
+| Motor driver | TB6612 breakout | More efficient and cooler than an L298N, same wiring effort. 1.2 A per channel, so check your motor's stall current | $6.95 | [Adafruit](https://www.adafruit.com/product/2448) |
+| Wheels | 2 × 65 mm | Sets `wheel_radius = 0.0325` | ~$8 *est.* | |
+| Caster | 1 × ball caster | Low friction so it does not fight turns | ~$4 *est.* | |
+| Battery | 3S Li-ion pack, plus a balance charger if you do not own one | Runs the motors directly | ~$30 *est.* | |
+| 5 V supply | 5 V / 5 A step-down regulator | The Pi 5 wants 5 A; the common 3 A UBECs are not enough, and browning out mid-map is the classic failure. Pololu D36V50F5 shown; generic 5 A bucks run ~$15 | $39.95 | [Pololu](https://www.pololu.com/product/4091) |
+| Chassis | Laser-cut acrylic or 3D-printed plate | Any flat plate works; keep the lidar unobstructed 360° | ~$15 *est.* | |
+
+Totals:
+
+- **Budget build, about $330:** RPLIDAR C1, JGB37-520 motors, a generic 5 A buck.
+- **Fewer surprises, about $460:** RPLIDAR A1M8 on the packaged driver, Pololu
+  motors, Pololu regulator.
+
+Neither total includes shipping, wire, connectors or screws.
 
 Keep the centre of mass between the wheel axle and the caster: put the battery
 toward the caster. With the weight over the axle the robot tips onto its nose
