@@ -12,13 +12,21 @@
   <xacro:property name="base_clearance"   value="0.02"/>
   <xacro:property name="base_mass"        value="1.6"/>
   <xacro:property name="wheel_mass"       value="0.05"/>
+  <!-- Centre of mass, measured from the axle (+x forward). It MUST sit between
+       the axle and the rear caster: with it on the axle nothing holds the nose
+       up, the robot tips forward onto its chassis when it brakes, and the
+       lidar - only ~11 cm off the floor - starts painting the floor as walls.
+       On the real robot, put the battery toward the caster. -->
+  <xacro:property name="com_x"            value="-0.04"/>
+  <xacro:property name="caster_radius"    value="${base_clearance/2 + 0.005}"/>
 
   <material name="grey"><color rgba="0.3 0.3 0.32 1"/></material>
   <material name="dark"><color rgba="0.1 0.1 0.1 1"/></material>
   <material name="red"><color rgba="0.7 0.1 0.1 1"/></material>
 
-  <xacro:macro name="box_inertia" params="m x y z">
+  <xacro:macro name="box_inertia" params="m x y z ox:=0">
     <inertial>
+      <origin xyz="${ox} 0 0"/>
       <mass value="${m}"/>
       <inertia ixx="${m*(y*y+z*z)/12}" iyy="${m*(x*x+z*z)/12}" izz="${m*(x*x+y*y)/12}"
                ixy="0" ixz="0" iyz="0"/>
@@ -36,7 +44,7 @@
     <collision>
       <geometry><box size="${base_length} ${base_width} ${base_height}"/></geometry>
     </collision>
-    <xacro:box_inertia m="${base_mass}" x="${base_length}" y="${base_width}" z="${base_height}"/>
+    <xacro:box_inertia m="${base_mass}" x="${base_length}" y="${base_width}" z="${base_height}" ox="${com_x}"/>
   </link>
 
   <joint name="base_footprint_joint" type="fixed">
@@ -77,14 +85,16 @@
 
   <!-- Single rear ball caster. Modelled as a sphere so it slides in sim. -->
   <link name="caster_link">
-    <visual><geometry><sphere radius="${base_clearance/2 + 0.005}"/></geometry><material name="dark"/></visual>
-    <collision><geometry><sphere radius="${base_clearance/2 + 0.005}"/></geometry></collision>
+    <visual><geometry><sphere radius="${caster_radius}"/></geometry><material name="dark"/></visual>
+    <collision><geometry><sphere radius="${caster_radius}"/></geometry></collision>
     <inertial><mass value="0.02"/><inertia ixx="1e-5" iyy="1e-5" izz="1e-5" ixy="0" ixz="0" iyz="0"/></inertial>
   </link>
   <joint name="caster_joint" type="fixed">
     <parent link="base_link"/>
     <child link="caster_link"/>
-    <origin xyz="${-base_length/2 + 0.03} 0 ${-base_height/2 - base_clearance/2 + 0.005}"/>
+    <!-- Bottom of the sphere exactly on the floor, level with the wheel
+         contacts. Any offset here is a permanent tilt of the lidar. -->
+    <origin xyz="${-base_length/2 + 0.03} 0 ${caster_radius - wheel_radius - base_clearance}"/>
   </joint>
 
   <link name="lidar_link">

@@ -37,17 +37,24 @@ slam_toolbox:
     scan_buffer_maximum_scan_distance: 12.0
     link_match_minimum_response_fine: 0.1
     link_scan_maximum_distance: 1.5
-    loop_search_maximum_distance: 3.0
+    # Loop closure, deliberately stricter than the slam_toolbox defaults
+    # (3.0 m, 8.0 m window, responses 0.35 / 0.45). A house is rows of parallel
+    # walls and near-identical rooms; with an 8 m search window the matcher
+    # accepted a wrong closure on revisiting a room and bent half the map,
+    # every run. Search only near where odometry says the robot is, and
+    # demand a clearly better match. Measured on worlds/house.sdf: default
+    # settings 64% of occupied cells on a real wall; these settings 100%.
+    loop_search_maximum_distance: 2.0
     do_loop_closing: true
     loop_match_minimum_chain_size: 10
     loop_match_maximum_variance_coarse: 3.0
-    loop_match_minimum_response_coarse: 0.35
-    loop_match_minimum_response_fine: 0.45
+    loop_match_minimum_response_coarse: 0.5
+    loop_match_minimum_response_fine: 0.6
 
     correlation_search_space_dimension: 0.5
     correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.1
-    loop_search_space_dimension: 8.0
+    loop_search_space_dimension: 3.0
     loop_search_space_resolution: 0.05
     loop_search_space_smear_deviation: 0.03
 

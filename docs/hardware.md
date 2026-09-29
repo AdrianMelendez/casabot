@@ -20,6 +20,11 @@ Prices are rough 2026 street prices, for orientation only.
 
 Total: roughly **$260**.
 
+Keep the centre of mass between the wheel axle and the caster: put the battery
+toward the caster. With the weight over the axle the robot tips onto its nose
+every time it brakes, the low-mounted lidar sees the floor, and the map fills
+with walls that are not there. The simulated model had exactly this bug.
+
 Sanity check before buying: the lidar must see over the whole robot. If anything
 sticks up beside it, you get a permanent blind wedge in every map.
 

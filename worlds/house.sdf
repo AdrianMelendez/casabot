@@ -3,8 +3,12 @@
      Robot spawns in the lower-left room; the doorway is at about (-1, -0.3). -->
 <sdf version="1.9">
   <world name="house">
-    <physics name="1ms" type="ignored">
-      <max_step_size>0.001</max_step_size>
+    <!-- 4 ms, not Gazebo's usual 1 ms. /clock is published every step and every
+         use_sim_time node wakes for each tick; at 1 kHz that alone cost several
+         cores and kept the sim below real time. A 0.26 m/s robot on a flat floor
+         does not need it. -->
+    <physics name="4ms" type="ignored">
+      <max_step_size>0.004</max_step_size>
       <real_time_factor>1.0</real_time_factor>
     </physics>
     <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>

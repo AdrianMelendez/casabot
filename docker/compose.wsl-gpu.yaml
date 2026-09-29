@@ -1,0 +1,18 @@
+# WSL2 only: give Gazebo and RViz the Windows GPU through Mesa's d3d12 driver.
+#
+#   docker compose -f compose.yaml -f compose.wsl-gpu.yaml run --rm dev
+#
+# Without it the container has no GPU device, Mesa falls back to llvmpipe, and
+# the Gazebo GUI plus the lidar sensor (a gpu_lidar, rendered every scan) are
+# rasterized on the CPU. Measured on a 16-core laptop with an NVIDIA T550:
+# Gazebo CPU with the GUI open drops from ~480% to ~280%.
+services:
+  dev:
+    devices:
+      - /dev/dxg:/dev/dxg
+    volumes:
+      - /usr/lib/wsl:/usr/lib/wsl:ro
+    environment:
+      LD_LIBRARY_PATH: /usr/lib/wsl/lib
+      GALLIUM_DRIVER: d3d12
+      MESA_D3D12_DEFAULT_ADAPTER_NAME: NVIDIA

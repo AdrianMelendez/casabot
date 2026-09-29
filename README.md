@@ -70,6 +70,13 @@ cd casabot/docker
 docker compose run --rm dev
 ```
 
+On WSL2, add the GPU override so Gazebo renders on your graphics card instead
+of the CPU (see [The simulation is slow](#the-simulation-is-slow)):
+
+```bash
+docker compose -f compose.yaml -f compose.wsl-gpu.yaml run --rm dev
+```
+
 The container builds a user with UID 1000, which is the default on WSL2 and on
 most desktop installs. If `id -u` gives you something else, export it first so
 files in the mounted workspace stay yours:
@@ -90,6 +97,9 @@ colcon build --symlink-install && source install/setup.bash
 ros2 launch casabot sim.launch.py
 ```
 
+Add `headless:=true` to skip the Gazebo window. RViz shows everything you need
+for mapping, and the Gazebo GUI is the single most expensive thing in the stack.
+
 **Terminal 2** — mapping:
 
 ```bash
@@ -99,13 +109,18 @@ ros2 launch casabot mapping.launch.py use_sim_time:=true
 **Terminal 3** — drive it around until the map looks complete, then save:
 
 ```bash
-ros2 run teleop_twist_keyboard teleop_twist_keyboard
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p speed:=0.2 -p turn:=0.6
 ros2 run nav2_map_server map_saver_cli -f ~/.casabot/map
 ```
 
-Stop the robot before saving. `map_saver_cli` grabs one message off `/map`, and
-if it fires mid-drive while slam_toolbox is rebuilding the grid it exits with
-`Failed to spin map subscription` and writes nothing.
+teleop's defaults are 0.5 m/s and 1.0 rad/s, about twice what Nav2 will ever
+drive this robot at. Drive slowly, go through every doorway, and finish where
+you started so loop closure has something to close.
+
+If `map_saver_cli` prints `Failed to spin map subscription` and writes nothing,
+run it again. It happens intermittently, even with the robot stopped: 2 of 3
+attempts failed in one test run and 0 of 6 in the next. A longer
+`save_map_timeout` made no measurable difference.
 
 Now restart with navigation instead of mapping, set the initial pose in RViz
 with **2D Pose Estimate**, and name some places:
@@ -212,8 +227,20 @@ container in this repo:
 - Nav2 brings up all ten lifecycle nodes with no errors and AMCL localises
 - `places save`, `places list`, then `places go` after driving away, ending in
   `arrived at 'home'` within the goal tolerance
+- A scripted 23-waypoint tour of both rooms, scored against the true geometry
+  in `worlds/house.sdf`: map 8.1 x 6.1 m against 8.1 x 6.1 m of real wall,
+  **100% of occupied cells within 10 cm of a real obstacle**, and 91% of the
+  wall and furniture faces mapped (the rest face a wall the robot never
+  drove behind)
+  - the same score on three separate runs
+- Nav2 on that map from a fresh spawn: goals in the far room and the top room,
+  both reached through the doorways, confirmed against Gazebo's true pose
+  (0.18 m and 0.22 m off, inside the 0.25 m goal tolerance), then `places go`
+  back to the start
+- Simulation holds real time (RTF 1.00) headless, and 0.8-1.0 with the Gazebo
+  GUI open
 
-What has **not** been run: RViz and the Gazebo GUI (the tests were headless),
+What has **not** been run: RViz,
 and every line of the hardware path — the ESP32 firmware, the serial protocol
 and `base_driver` have never touched a real motor. Treat the pin assignments
 and the PID gains as a starting point, not as working values.
@@ -248,6 +275,43 @@ started it. Stop strays with `docker ps -q --filter ancestor=casabot-dev |
 xargs -r docker stop`.
 
 Only once `Publisher count` is 1 everywhere is it worth blaming the scan matcher.
+
+### The map has doubled or bent walls
+
+Two causes were found and fixed in this repo; both are worth knowing for the
+real robot, because both look like a SLAM tuning problem and neither is one.
+
+- **The chassis was tipping.** With the centre of mass directly over the wheel
+  axle and only a rear caster, the robot rode nose-down (up to 9.4 degrees)
+  whenever it braked. The lidar is 11 cm off the floor, so a few degrees of
+  pitch puts the beam on the floor a metre or two ahead, and those hits get
+  mapped as walls. The URDF now puts the centre of mass between the axle and
+  the caster. On the real robot, mount the battery toward the caster.
+- **A false loop closure.** With slam_toolbox's default 8 m loop search window,
+  revisiting a room in a house full of parallel walls got matched to the wrong
+  place and the optimizer bent half the map to fit. `config/slam.yaml` searches
+  only near the odometry estimate and demands a stronger match.
+
+A quick check for the first one: `ros2 topic echo /imu/data_raw --field
+orientation` while driving. Roll and pitch should stay near zero.
+
+### The simulation is slow
+
+Check the real-time factor first. It is Gazebo's clock speed relative to the
+wall clock, and anything below 1.0 means every sensor, and your driving, runs in
+slow motion:
+
+```bash
+gz topic -e -t /world/house/stats -n 1 | grep real_time_factor
+```
+
+On a 16-core laptop this started at 0.10-0.45. None of that was the computer:
+
+| Cause | Fix | Effect |
+|---|---|---|
+| The container has no GPU, so the Gazebo GUI and the `gpu_lidar` are rendered on the CPU by Mesa's llvmpipe | `headless:=true`, or `compose.wsl-gpu.yaml` on WSL2 | RTF 0.92 headless; Gazebo CPU with GUI ~480% to ~280% |
+| 1 ms physics steps publish `/clock` at 1 kHz and every `use_sim_time` node wakes for each tick | 4 ms step in `worlds/house.sdf` | RTF 1.00 headless, ROS node CPU roughly halved |
+| Gazebo's `JointStatePublisher` pushed `/joint_states` every physics step (415 Hz) through the bridge and `robot_state_publisher` | Use the same `joint_state_publisher` node as the real robot | Removes a busy topic nobody reads |
 
 ## Design notes
 
