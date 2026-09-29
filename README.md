@@ -122,16 +122,47 @@ run it again. It happens intermittently, even with the robot stopped: 2 of 3
 attempts failed in one test run and 0 of 6 in the next. A longer
 `save_map_timeout` made no measurable difference.
 
-Now restart with navigation instead of mapping, set the initial pose in RViz
-with **2D Pose Estimate**, and name some places:
+### Navigating the saved map
+
+Stop the mapping launch (Ctrl-C) and start navigation in its place. SLAM and
+AMCL both publish `map -> odom`, so running both makes them fight.
 
 ```bash
 ros2 launch casabot navigation.launch.py use_sim_time:=true    # terminal 2
-ros2 run casabot places save sofa                              # terminal 3
-ros2 run casabot places go sofa
 ```
 
-Extra shells into a running container: `docker compose exec dev bash`.
+RViz opens with the saved map, but the robot will not move yet: it has the
+map, not its own position on it.
+
+1. **Tell it where it is.** Click **2D Pose Estimate** in the RViz toolbar,
+   click where the robot is on the map, and drag in the direction it faces.
+   If the sim was restarted after mapping, the robot is back at the spawn
+   point, which is the map origin, facing along the red axis.
+2. **Check it.** The laser points should sit on the map's walls. If they are
+   offset or rotated, set the pose again.
+3. **Send it somewhere.** Click **Nav2 Goal**, click a spot on the map and drag
+   the heading you want. The robot plans a path and drives there on its own.
+
+If a Nav2 Goal does nothing, step 1 is almost always the reason.
+
+### Naming places
+
+Open another shell into the running container:
+
+```bash
+docker compose exec dev bash
+```
+
+Send the robot somewhere with **Nav2 Goal**, save the spot, and from then on
+send it there by name:
+
+```bash
+ros2 run casabot places save kitchen --ros-args -p use_sim_time:=true
+ros2 run casabot places go kitchen --ros-args -p use_sim_time:=true
+```
+
+Drop `--ros-args -p use_sim_time:=true` on the real robot; it is only for the
+simulator's clock.
 
 ## Running on the real robot
 
