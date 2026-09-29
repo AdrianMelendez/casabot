@@ -67,7 +67,17 @@ class BaseDriver(Node):
         self.send_wheel_speeds(left, right)
 
     def send_wheel_speeds(self, left, right):
-        self.serial.write(f'v {left:.4f} {right:.4f}\n'.encode())
+        try:
+            self.serial.write(f'v {left:.4f} {right:.4f}\n'.encode())
+        except OSError as e:            # pyserial's SerialException is an OSError too
+            self.serial_lost(e)
+
+    def serial_lost(self, error):
+        """The ESP32 went away (USB knocked out, board reset). Exit with a clear
+        message rather than a traceback from inside a timer; the firmware's own
+        0.5 s command timeout has already stopped the motors."""
+        self.get_logger().fatal(f'lost the base controller on {self.serial.port}: {error}')
+        raise SystemExit(1)
 
     def check_cmd_timeout(self):
         """Stop if the planner goes quiet. A robot that keeps its last command
@@ -79,6 +89,12 @@ class BaseDriver(Node):
     # -- incoming ---------------------------------------------------------
 
     def poll_serial(self):
+        try:
+            self.read_lines()
+        except OSError as e:
+            self.serial_lost(e)
+
+    def read_lines(self):
         while self.serial.in_waiting:
             line = self.serial.readline().decode('ascii', errors='ignore').strip()
             if not line:
@@ -153,9 +169,9 @@ class BaseDriver(Node):
 
     def destroy_node(self):
         try:
-            self.send_wheel_speeds(0.0, 0.0)
+            self.serial.write(b'v 0.0000 0.0000\n')
             self.serial.close()
-        except serial.SerialException:
+        except OSError:
             pass
         super().destroy_node()
 

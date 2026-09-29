@@ -316,7 +316,7 @@ casabot/
 ├── docker/                ROS 2 Jazzy + Gazebo dev container (WSL2-friendly)
 ├── docs/hardware.md       BOM, wiring, serial protocol, calibration
 ├── tools/                 record_demo.py + render_demo.py: the GIF at the top
-└── test/                  test_kinematics.py, test_frontiers.py, test_rooms.py
+└── test/                  kinematics, frontiers, rooms (no ROS); base_driver (emulated ESP32)
 ```
 
 ## Tests
@@ -332,6 +332,23 @@ python3 test/test_rooms.py
 
 If those pass and the robot still drifts, the fault is in the measured
 constants, not the code — go back to calibration.
+
+`base_driver`, the bridge to the ESP32, is tested against a fake ESP32 on a
+pseudo-terminal that speaks the [serial protocol](docs/hardware.md#serial-protocol):
+it turns wheel-speed commands into encoder ticks and gyro readings at 50 Hz, as
+the firmware does. It needs ROS, so run it inside the container:
+
+```bash
+python3 src/casabot/test/test_base_driver.py
+```
+
+```
+ok  base_driver publishes odom -> base_footprint
+ok  0.1 m/s for 3 s: wheels at 3.077 rad/s, odom x = 0.299 m
+ok  wheels stopped 0.56 s after cmd_vel went quiet (cmd_timeout 0.5 s)
+ok  0.5 rad/s for 3 s: turned 1.50 rad on the spot, gyro 0.500 rad/s
+ok  unplugged: base_driver exits with "lost the base controller", no traceback
+```
 
 ### What has actually been run
 
@@ -374,10 +391,11 @@ container in this repo:
 - Simulation holds real time (RTF 1.00) headless, and 0.8-1.0 with the Gazebo
   GUI open
 
-What has **not** been run: RViz,
-and every line of the hardware path — the ESP32 firmware, the serial protocol
-and `base_driver` have never touched a real motor. Treat the pin assignments
-and the PID gains as a starting point, not as working values.
+What has **not** been run: RViz, and anything on real hardware. `base_driver`
+has only talked to the emulated ESP32 above; the firmware itself has never been
+compiled for or flashed to a board, and nothing has driven a real motor. Treat
+the pin assignments and the PID gains as a starting point, not as working
+values.
 
 ## Troubleshooting
 
