@@ -12,7 +12,7 @@ import os
 import numpy as np
 import rclpy
 from action_msgs.msg import GoalStatus
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import Point, PoseStamped
 from nav2_msgs.action import NavigateToPose
 from nav2_msgs.srv import ClearEntireCostmap
 from nav_msgs.msg import OccupancyGrid
@@ -20,6 +20,7 @@ from rclpy.action import ActionClient
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from tf2_ros import Buffer, TransformListener
+from visualization_msgs.msg import Marker, MarkerArray
 
 from casabot.frontiers import UNKNOWN, find_frontiers, save_map
 from casabot.kinematics import yaw_to_quaternion
@@ -58,6 +59,8 @@ class Explorer(Node):
         self.blacklist = []
         self.idle_ticks = 0
         self.rejections = 0
+        self.frontier_xy = []      # candidate goals from the last search, for RViz
+        self.rooms_xy = []         # (name, x, y) once the rooms are found
         self.state = 'exploring'   # -> returning -> done
         self.goals_sent = 0
         self.stuck_at = None       # robot position when the last goal failed
@@ -73,6 +76,8 @@ class Explorer(Node):
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                              reliability=ReliabilityPolicy.RELIABLE)
         self.create_subscription(OccupancyGrid, 'map', self.on_map, latched)
+        self.markers = self.create_publisher(MarkerArray, 'explore/markers', latched)
+        self.create_timer(1.0, self.publish_markers)
         self.create_timer(1.0, self.tick)
         self.get_logger().info('waiting for /map and Nav2')
 
@@ -156,6 +161,7 @@ class Explorer(Node):
             if not self.blacklisted(x, y):
                 targets.append((math.hypot(x - robot[0], y - robot[1]), x, y, size))
 
+        self.frontier_xy = [(x, y) for _, x, y, _ in targets]
         if not targets:
             # The map only updates about once a second; make sure it is really done.
             self.idle_ticks += 1
@@ -278,8 +284,45 @@ class Explorer(Node):
         for k, (row, col, area) in enumerate(rooms, start=1):
             x, y = self.cell_to_xy(row, col)
             places[f'room_{k}'] = {'x': round(x, 3), 'y': round(y, 3), 'yaw': 0.0}
+            self.rooms_xy.append((f'room_{k}', x, y))
             self.get_logger().info('room_%d: %.1f m2, place at (%.2f, %.2f)' % (k, area, x, y))
         save_places(self.places_path, places)
+
+    def publish_markers(self):
+        """What the explorer is thinking, for RViz (rviz/casabot.rviz shows it):
+        cyan frontiers it could go to, the green goal it is going to, red goals
+        it gave up on, and at the end each room with its name."""
+        def marker(ns, mid, kind, size, rgba, points=None):
+            m = Marker()
+            m.header.frame_id = 'map'
+            m.ns, m.id, m.type = ns, mid, kind
+            m.pose.orientation.w = 1.0
+            m.scale.x = m.scale.y = m.scale.z = size
+            m.color.r, m.color.g, m.color.b, m.color.a = rgba
+            if points is not None:
+                m.points = [Point(x=x, y=y, z=0.05) for x, y in points]
+                m.action = Marker.ADD if points else Marker.DELETE
+            return m
+
+        out = MarkerArray()
+        out.markers.append(marker('frontiers', 0, Marker.SPHERE_LIST, 0.15, (0.1, 0.8, 0.9, 0.9),
+                                  self.frontier_xy if self.state == 'exploring' else []))
+        out.markers.append(marker('skipped', 0, Marker.CUBE_LIST, 0.15, (0.9, 0.2, 0.2, 0.9),
+                                  self.blacklist))
+        goal = marker('goal', 0, Marker.SPHERE, 0.35, (0.2, 0.85, 0.3, 0.8))
+        if self.goal is None or self.state != 'exploring':
+            goal.action = Marker.DELETE
+        else:
+            goal.pose.position.x, goal.pose.position.y = self.goal
+        out.markers.append(goal)
+        for k, (name, x, y) in enumerate(self.rooms_xy):
+            dot = marker('rooms', k, Marker.SPHERE, 0.3, (0.92, 0.35, 0.05, 1.0))
+            dot.pose.position.x, dot.pose.position.y = x, y
+            label = marker('room_names', k, Marker.TEXT_VIEW_FACING, 0.5, (0.05, 0.05, 0.1, 1.0))
+            label.pose.position.x, label.pose.position.y, label.pose.position.z = x, y + 0.45, 0.5
+            label.text = name
+            out.markers += [dot, label]
+        self.markers.publish(out)
 
     def finish(self, grid):
         self.get_logger().info('no reachable frontiers left after %d goals' % self.goals_sent)

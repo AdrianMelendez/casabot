@@ -46,9 +46,7 @@ def generate_launch_description():
         Node(
             package='rviz2',
             executable='rviz2',
-            arguments=['-d', os.path.join(
-                get_package_share_directory('nav2_bringup'),
-                'rviz', 'nav2_default_view.rviz')],
+            arguments=['-d', os.path.join(pkg, 'rviz', 'casabot.rviz')],
             parameters=[{'use_sim_time': use_sim_time}],
             condition=IfCondition(rviz),
         ),

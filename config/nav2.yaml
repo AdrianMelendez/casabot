@@ -10,7 +10,6 @@
 ### Changed from stock:
 ###   - robot_base_frame / base_frame: base_link -> base_footprint
 ###   - robot_radius: 0.22 -> 0.15   (chassis is 0.22 x 0.17 m, wheels ~0.23 m)
-###   - inflation_radius: 0.55 -> 0.40
 ###   - odom_topic: /odom -> /odometry/filtered  (the EKF output, not raw wheels)
 ###   - laser_max_range: 100.0 -> 12.0  (RPLIDAR A1)
 ###   - controller FollowPath: MPPI -> Regulated Pure Pursuit
