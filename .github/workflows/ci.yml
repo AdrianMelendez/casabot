@@ -36,3 +36,16 @@ jobs:
       - run: apt-get update && apt-get install -y --no-install-recommends python3-serial python3-numpy python3-scipy python3-yaml
       - run: source /opt/ros/jazzy/setup.bash && colcon build --packages-select casabot
       - run: source install/setup.bash && timeout 120 python3 src/casabot/test/test_base_driver.py
+
+  firmware:
+    name: ESP32 firmware compiles
+    runs-on: ubuntu-24.04
+    env:
+      ESP32_INDEX: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      - run: arduino-cli core update-index --additional-urls "$ESP32_INDEX"
+      - run: arduino-cli core install esp32:esp32 --additional-urls "$ESP32_INDEX"
+      - run: arduino-cli core list
+      - run: arduino-cli compile --fqbn esp32:esp32:esp32 --warnings all firmware/esp32_base
