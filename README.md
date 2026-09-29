@@ -52,11 +52,13 @@ flowchart LR
     EXPLORE -->|NavigateToPose| NAV
 ```
 
-Only three pieces here are mine: `base_driver` (a serial bridge), `explore`
-(frontier exploration) and `places` (named waypoints). Everything else is
-off-the-shelf ROS 2, configured rather than rewritten. That is the point — the interesting work in a
-robot like this is the URDF, the frames, the parameters and the calibration, not
-a hand-rolled SLAM implementation that will be worse than `slam_toolbox`.
+The code written for this robot is small: `base_driver` (the serial bridge to
+the ESP32), `explore` with `frontiers` (autonomous exploration), `rooms` (split
+a map into rooms) and `places` (named goals). Mapping, localisation and path
+planning are off-the-shelf ROS 2, configured rather than rewritten. That is the
+point: the interesting work in a robot like this is the URDF, the frames, the
+parameters and the calibration, not a hand-rolled SLAM that would be worse than
+`slam_toolbox`.
 
 ## Why lidar, and not a camera
 
@@ -236,8 +238,9 @@ simulator's clock.
 
 ## Running on the real robot
 
-Flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32 core 3.3.x; CI compiles it against 3.3.12),
-wire it per [`docs/hardware.md`](docs/hardware.md), then on the Pi:
+Flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32 core
+3.3.x; CI compiles it against 3.3.12), wire it per
+[`docs/hardware.md`](docs/hardware.md), then on the Pi:
 
 ```bash
 ros2 launch casabot robot.launch.py \
@@ -323,7 +326,7 @@ casabot/
 ├── firmware/esp32_base/   Arduino sketch: PID, encoders, MPU6050
 ├── docker/                ROS 2 Jazzy + Gazebo dev container (WSL2-friendly)
 ├── docs/hardware.md       BOM, wiring, serial protocol, calibration
-├── tools/                 record_demo.py + render_demo.py: the GIF at the top
+├── tools/                 record_demo.py + render_demo.py: the GIFs in this README
 └── test/                  kinematics, frontiers, rooms (no ROS); base_driver (emulated ESP32)
 ```
 
@@ -340,6 +343,9 @@ python3 test/test_rooms.py
 
 If those pass and the robot still drifts, the fault is in the measured
 constants, not the code — go back to calibration.
+
+[CI](.github/workflows/ci.yml) runs all of these on every push, plus a check
+that `flat.sdf` matches its generator and a compile of the ESP32 firmware.
 
 `base_driver`, the bridge to the ESP32, is tested against a fake ESP32 on a
 pseudo-terminal that speaks the [serial protocol](docs/hardware.md#serial-protocol):
@@ -363,7 +369,7 @@ ok  unplugged: base_driver exits with "lost the base controller", no traceback
 The whole stack has been exercised headless in Gazebo Harmonic, in the
 container in this repo:
 
-- `colcon build`, both entry points registered, all four launch files parse
+- `colcon build`, the three executables registered, all five launch files parse
 - `/scan` returns real ranges, `/cmd_vel` moves the robot, the EKF publishes
   `/odometry/filtered` and `odom -> base_footprint`
 - slam_toolbox builds a map and publishes `map -> odom`; `map_saver_cli`
@@ -402,9 +408,8 @@ container in this repo:
 What has **not** been run: RViz, and anything on real hardware. `base_driver`
 has only talked to the emulated ESP32 above. The firmware compiles in CI with
 every warning enabled and none raised, but it has never been flashed to a board,
-and nothing has driven a real motor. Treat
-the pin assignments and the PID gains as a starting point, not as working
-values.
+and nothing has driven a real motor. Treat the pin assignments and the PID
+gains as a starting point, not as working values.
 
 ## Troubleshooting
 
@@ -501,7 +506,7 @@ wall clock, and anything below 1.0 means every sensor, and your driving, runs in
 slow motion:
 
 ```bash
-gz topic -e -t /world/house/stats -n 1 | grep real_time_factor
+gz topic -e -t /world/flat/stats -n 1 | grep real_time_factor    # or /world/house/stats
 ```
 
 On a 16-core laptop this started at 0.10-0.45. None of that was the computer:
@@ -509,7 +514,7 @@ On a 16-core laptop this started at 0.10-0.45. None of that was the computer:
 | Cause | Fix | Effect |
 |---|---|---|
 | The container has no GPU, so the Gazebo GUI and the `gpu_lidar` are rendered on the CPU by Mesa's llvmpipe | `headless:=true`, or `compose.wsl-gpu.yaml` on WSL2 | RTF 0.92 headless; Gazebo CPU with GUI ~480% to ~280% |
-| 1 ms physics steps publish `/clock` at 1 kHz and every `use_sim_time` node wakes for each tick | 4 ms step in `worlds/house.sdf` | RTF 1.00 headless, ROS node CPU roughly halved |
+| 1 ms physics steps publish `/clock` at 1 kHz and every `use_sim_time` node wakes for each tick | 4 ms step in both worlds | RTF 1.00 headless, ROS node CPU roughly halved |
 | Gazebo's `JointStatePublisher` pushed `/joint_states` every physics step (415 Hz) through the bridge and `robot_state_publisher` | Use the same `joint_state_publisher` node as the real robot | Removes a busy topic nobody reads |
 
 One cost remains and is simulation-only: every node on sim time receives
@@ -560,6 +565,7 @@ against.
 ## Roadmap
 
 - [x] Autonomous exploration: the robot maps a new place without being driven
+- [x] Rooms found automatically and saved as places
 - [ ] Docking station and autonomous recharge
 - [ ] `places go` from a phone (a small web UI over rosbridge)
 - [ ] Camera + object detection for goals like "go to the chair"
