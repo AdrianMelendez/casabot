@@ -17,6 +17,10 @@ def generate_launch_description():
     urdf = os.path.join(pkg, 'urdf', 'casabot.urdf.xacro')
     world = LaunchConfiguration('world')
     headless = LaunchConfiguration('headless')
+    worlds = os.path.join(pkg, 'worlds')
+    # world:=flat picks worlds/flat.sdf; anything with a slash is used as a path.
+    world_file = PythonExpression([
+        "'", world, "' if '/' in '", world, "' else '", worlds, "/' + '", world, "' + '.sdf'"])
 
     robot_description = Command(['xacro ', urdf, ' use_sim:=true'])
 
@@ -26,13 +30,19 @@ def generate_launch_description():
         # gz_args is built here, so passing gz_args:= on the command line has no
         # effect. Use headless:=true to drop the GUI.
         launch_arguments={
-            'gz_args': [PythonExpression(["'-s -r -v1 ' if '", headless, "' == 'true' else '-r -v1 '"]), world],
+            'gz_args': [PythonExpression(["'-s -r -v1 ' if '", headless, "' == 'true' else '-r -v1 '"]), world_file],
             'on_exit_shutdown': 'true',
         }.items(),
     )
 
     return LaunchDescription([
-        DeclareLaunchArgument('world', default_value=os.path.join(pkg, 'worlds', 'house.sdf')),
+        DeclareLaunchArgument('world', default_value='house',
+                              description='house, flat, or a path to an .sdf file'),
+        # Where the robot appears. Each bundled world has a spot in open floor.
+        DeclareLaunchArgument('x', default_value=PythonExpression(
+            ["{'house': '-2.0', 'flat': '6.0'}.get('", world, "', '0.0')"])),
+        DeclareLaunchArgument('y', default_value=PythonExpression(
+            ["{'house': '-1.5', 'flat': '4.1'}.get('", world, "', '0.0')"])),
         DeclareLaunchArgument('headless', default_value='false',
                               description='Run the Gazebo server only, no GUI'),
         SetEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.dirname(pkg)),
@@ -55,7 +65,8 @@ def generate_launch_description():
         Node(
             package='ros_gz_sim',
             executable='create',
-            arguments=['-topic', 'robot_description', '-name', 'casabot', '-x', '-2.0', '-y', '-1.5', '-z', '0.08'],
+            arguments=['-topic', 'robot_description', '-name', 'casabot',
+                       '-x', LaunchConfiguration('x'), '-y', LaunchConfiguration('y'), '-z', '0.08'],
             output='screen',
         ),
         # Gazebo's own odom TF is deliberately not bridged: robot_localization
