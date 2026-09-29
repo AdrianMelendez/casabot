@@ -238,8 +238,14 @@ simulator's clock.
 
 ## Running on the real robot
 
-Flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32 core
-3.3.x; CI compiles it against 3.3.12), wire it per
+**Follow [`docs/bringup.md`](docs/bringup.md) the first time.** It brings the
+robot up one piece at a time (telemetry, encoders, motors, lidar, calibration,
+first map) with [`tools/base_check.py`](tools/base_check.py) to talk to the
+ESP32 before any ROS is involved, so a reversed wire shows up as a reversed
+wire and not as a map that spins.
+
+In short: flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32
+core 3.3.x; CI compiles it against 3.3.12), wire it per
 [`docs/hardware.md`](docs/hardware.md), then on the Pi:
 
 ```bash
@@ -325,8 +331,12 @@ casabot/
 │   └── generate_flat.py   the flat's layout and furniture
 ├── firmware/esp32_base/   Arduino sketch: PID, encoders, MPU6050
 ├── docker/                ROS 2 Jazzy + Gazebo dev container (WSL2-friendly)
-├── docs/hardware.md       BOM, wiring, serial protocol, calibration
-├── tools/                 record_demo.py + render_demo.py: the GIFs in this README
+├── docs/
+│   ├── hardware.md        BOM, wiring, serial protocol, calibration
+│   └── bringup.md         first power-on to first map, step by step
+├── tools/
+│   ├── base_check.py      talk to the ESP32 without ROS, for bring-up
+│   └── record_demo.py, render_demo.py   the GIFs in this README
 └── test/                  kinematics, frontiers, rooms (no ROS); base_driver (emulated ESP32)
 ```
 

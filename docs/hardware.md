@@ -95,7 +95,11 @@ The physical robot never matches the numbers in the URDF. Three values decide
 whether your map comes out square, and all three are measured, not guessed:
 
 **`ticks_per_rev`** — Lift the robot off the ground. Mark a wheel, spin it
-exactly 10 turns by hand, read the tick delta on the serial port, divide by 10.
+exactly 10 turns by hand, read the tick delta with
+`tools/base_check.py <port> listen`, divide by 10. Expect about 330 for the BOM
+motor: the firmware counts one edge per encoder pulse, so it is pulses per
+motor turn × gear ratio (11 × 30), not the ×4 figure datasheets quote.
+[bringup.md](bringup.md) step 3 walks through it.
 
 **`wheel_radius`** — Command a straight 2 m drive, measure what the robot
 actually travelled, then scale:
