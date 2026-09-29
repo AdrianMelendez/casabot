@@ -1,5 +1,7 @@
 # casabot
 
+[![ci](https://github.com/AdrianMelendez/casabot/actions/workflows/ci.yml/badge.svg)](https://github.com/AdrianMelendez/casabot/actions/workflows/ci.yml)
+
 A differential-drive robot that explores a house on its own, maps it with a 2D
 lidar, works out which room is which, then drives to any room or spot by name.
 

@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    name: pure-Python tests
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy scipy
+      - run: python3 test/test_kinematics.py
+      - run: python3 test/test_frontiers.py
+      - run: python3 test/test_rooms.py
+      - name: flat.sdf is what generate_flat.py writes
+        run: python3 worlds/generate_flat.py | diff -q - worlds/flat.sdf
+
+  ros:
+    name: colcon build + base_driver on an emulated ESP32
+    runs-on: ubuntu-24.04
+    container: ros:jazzy-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src/casabot
+      # Only what the build and base_driver need. The full exec_depends pull in
+      # Gazebo, Nav2 and slam_toolbox, which this job never runs.
+      - run: apt-get update && apt-get install -y --no-install-recommends python3-serial python3-numpy python3-scipy python3-yaml
+      - run: source /opt/ros/jazzy/setup.bash && colcon build --packages-select casabot
+      - run: source install/setup.bash && timeout 120 python3 src/casabot/test/test_base_driver.py
