@@ -46,6 +46,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
       - run: arduino-cli core update-index --additional-urls "$ESP32_INDEX"
-      - run: arduino-cli core install esp32:esp32 --additional-urls "$ESP32_INDEX"
+      # Pinned: the version the sketch was verified against. Bump deliberately.
+      - run: arduino-cli core install esp32:esp32@3.3.12 --additional-urls "$ESP32_INDEX"
       - run: arduino-cli core list
       - run: arduino-cli compile --fqbn esp32:esp32:esp32 --warnings all firmware/esp32_base

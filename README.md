@@ -236,7 +236,7 @@ simulator's clock.
 
 ## Running on the real robot
 
-Flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32 core 3.x),
+Flash `firmware/esp32_base/esp32_base.ino` with the Arduino IDE (ESP32 core 3.3.x; CI compiles it against 3.3.12),
 wire it per [`docs/hardware.md`](docs/hardware.md), then on the Pi:
 
 ```bash
@@ -400,8 +400,9 @@ container in this repo:
   GUI open
 
 What has **not** been run: RViz, and anything on real hardware. `base_driver`
-has only talked to the emulated ESP32 above; the firmware itself has never been
-compiled for or flashed to a board, and nothing has driven a real motor. Treat
+has only talked to the emulated ESP32 above. The firmware compiles in CI with
+every warning enabled and none raised, but it has never been flashed to a board,
+and nothing has driven a real motor. Treat
 the pin assignments and the PID gains as a starting point, not as working
 values.
 
