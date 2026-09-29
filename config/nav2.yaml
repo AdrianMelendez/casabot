@@ -14,6 +14,8 @@
 ###   - odom_topic: /odom -> /odometry/filtered  (the EKF output, not raw wheels)
 ###   - laser_max_range: 100.0 -> 12.0  (RPLIDAR A1)
 ###   - controller FollowPath: MPPI -> Regulated Pure Pursuit
+###   - controller_frequency: 20 -> 10 Hz
+###   - bt_navigator default_server_timeout: 20 -> 200 ms
 ###
 ### Re-diff against /opt/ros/jazzy/share/nav2_bringup/params/nav2_params.yaml
 ### after a Nav2 upgrade.
@@ -64,7 +66,10 @@ bt_navigator:
     robot_base_frame: base_footprint
     odom_topic: /odometry/filtered
     bt_loop_duration: 10
-    default_server_timeout: 20
+    # ms the tree waits for a server to acknowledge a request. Upstream's 20 ms
+    # is a fast-desktop number: under CPU load every goal aborted instantly with
+    # 'Timed out while waiting for action server to acknowledge goal request'.
+    default_server_timeout: 200
     wait_for_service_timeout: 1000
     action_server_result_timeout: 900.0
     navigators: ["navigate_to_pose", "navigate_through_poses"]
@@ -87,7 +92,10 @@ bt_navigator:
 
 controller_server:
   ros__parameters:
-    controller_frequency: 20.0
+    # 10 Hz, not upstream's 20. Plenty for 0.26 m/s, and it halves the
+    # controller's CPU: under load the sim runs slow, the 20 Hz loop misses
+    # its rate and the controller starts reporting collisions in open floor.
+    controller_frequency: 10.0
     costmap_update_timeout: 0.30
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5

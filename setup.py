@@ -26,6 +26,7 @@ setup(
         'console_scripts': [
             'base_driver = casabot.base_driver:main',
             'places = casabot.places:main',
+            'explore = casabot.explore:main',
         ],
     },
 )
