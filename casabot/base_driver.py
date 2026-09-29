@@ -10,6 +10,7 @@ Odometry is published without a TF: robot_localization owns odom -> base_footpri
 """
 
 import math
+from collections import deque
 
 import rclpy
 import serial
@@ -30,7 +31,9 @@ class BaseDriver(Node):
         # Measure these on the real robot; the defaults are for the BOM chassis.
         self.declare_parameter('wheel_radius', 0.0325)
         self.declare_parameter('wheel_separation', 0.20)
-        self.declare_parameter('ticks_per_rev', 1320.0)
+        # One edge per encoder pulse, as the firmware counts: PPR x gear ratio.
+        # 330 for the BOM's JGB37-520 (11 PPR, 30:1). Must match the firmware.
+        self.declare_parameter('ticks_per_rev', 330.0)
         self.declare_parameter('cmd_timeout', 0.5)
 
         self.wheel_radius = self.get_parameter('wheel_radius').value
@@ -46,7 +49,8 @@ class BaseDriver(Node):
 
         self.x = self.y = self.theta = 0.0
         self.last_ticks = None
-        self.last_odom_stamp = None
+        # (time, left, right) for the last VELOCITY_WINDOW seconds of ticks.
+        self.tick_history = deque()
         self.last_cmd_time = self.get_clock().now()
 
         self.odom_pub = self.create_publisher(Odometry, 'odom', 10)
@@ -111,30 +115,43 @@ class BaseDriver(Node):
         elif kind == 'i':
             self.handle_imu([float(f) for f in fields[:6]])
 
+    # Seconds of tick history the velocity is taken over. Serial lines arrive in
+    # bursts (USB batches them), so message-to-message velocity swings wildly:
+    # under load it read 0.06 m/s for a steady 0.1. At 330 ticks per wheel turn
+    # a 20 ms message also holds only ~3 ticks, a third of a reading per tick.
+    VELOCITY_WINDOW = 0.2
+
     def handle_odom(self, left_ticks, right_ticks):
         now = self.get_clock().now()
+        t = now.nanoseconds * 1e-9
         if self.last_ticks is None:
             self.last_ticks = (left_ticks, right_ticks)
-            self.last_odom_stamp = now
+            self.tick_history.append((t, left_ticks, right_ticks))
             return
 
-        dt = (now - self.last_odom_stamp).nanoseconds * 1e-9
-        if dt <= 0.0:
-            return
-
+        # Position: integrate every tick, whatever the timing.
         d_left_rad = ticks_to_rad(left_ticks - self.last_ticks[0], self.ticks_per_rev)
         d_right_rad = ticks_to_rad(right_ticks - self.last_ticks[1], self.ticks_per_rev)
         self.last_ticks = (left_ticks, right_ticks)
-        self.last_odom_stamp = now
-
         self.x, self.y, self.theta = integrate(
             self.x, self.y, self.theta,
             d_left_rad * self.wheel_radius,
             d_right_rad * self.wheel_radius,
             self.wheel_separation,
         )
+
+        # Velocity: ticks over the last VELOCITY_WINDOW seconds, not the last message.
+        self.tick_history.append((t, left_ticks, right_ticks))
+        while len(self.tick_history) > 2 and self.tick_history[1][0] <= t - self.VELOCITY_WINDOW:
+            self.tick_history.popleft()
+        t0, l0, r0 = self.tick_history[0]
+        span = t - t0
+        if span <= 0.0:
+            return
         vx, wz = wheels_to_twist(
-            d_left_rad / dt, d_right_rad / dt, self.wheel_separation, self.wheel_radius
+            ticks_to_rad(left_ticks - l0, self.ticks_per_rev) / span,
+            ticks_to_rad(right_ticks - r0, self.ticks_per_rev) / span,
+            self.wheel_separation, self.wheel_radius,
         )
 
         msg = Odometry()

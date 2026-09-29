@@ -24,7 +24,7 @@ from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
 
-TICKS_PER_REV, RADIUS, SEPARATION = 1320.0, 0.0325, 0.20
+TICKS_PER_REV, RADIUS, SEPARATION = 330.0, 0.0325, 0.20   # base_driver defaults
 
 
 class FakeESP32(threading.Thread):

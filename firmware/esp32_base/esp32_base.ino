@@ -22,11 +22,14 @@ const int PIN_R_ENC_A = 36, PIN_R_ENC_B = 39;
 const int PIN_SDA = 21, PIN_SCL = 22;
 
 // ---- tuning ----------------------------------------------------------------
-// TICKS_PER_REV counts every edge this sketch reacts to, at the OUTPUT shaft.
-// For an 11-PPR motor encoder behind a 30:1 gearbox, counting one edge:
-// 11 * 30 * 4 = 1320 if you count all four quadrature edges, 1320/4 if you
-// count one. This sketch counts one edge per channel A transition.
-const float TICKS_PER_REV = 1320.0f;
+// TICKS_PER_REV: ticks per turn of the WHEEL, as this sketch counts them. It
+// counts one edge per pulse (rising edges of channel A only), so it is
+// encoder PPR x gear ratio, not the x4 "counts per revolution" datasheets quote
+// for full quadrature:
+//   JGB37-520, 11 PPR, 30:1 (the BOM motor)      11 x 30     = 330
+//   Pololu 25D 34:1, 48 CPR (= 12 PPR per channel) 12 x 34.014 = 408
+// Must match base_driver's ticks_per_rev. Measure it anyway (docs/bringup.md).
+const float TICKS_PER_REV = 330.0f;
 const float MAX_WHEEL_RAD_S = 12.0f;   // clamp, protects the gearbox
 const float KP = 2.0f, KI = 8.0f, KD = 0.0f;
 const uint32_t CONTROL_PERIOD_US = 5000;   // 200 Hz PID
